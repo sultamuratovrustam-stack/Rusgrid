@@ -2,7 +2,7 @@
   "name": "РУСГРИД",
   "short_name": "РУСГРИД",
   "description": "Калькулятор ГСМ — РУСГРИД",
-  "start_url": "/",
+  "start_url": "/Rusgrid/",
   "display": "standalone",
   "background_color": "#060d1f",
   "theme_color": "#1a56c4",

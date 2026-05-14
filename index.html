@@ -156,6 +156,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .acc-row.profit .al{color:var(--green);font-weight:700;}
 .acc-row.profit .av{color:var(--green);font-size:15px;}
 
+/* CUSTOM PRICE */
+.custom-price-bar{background:rgba(255,255,255,0.06);border:1px solid rgba(77,142,255,0.3);border-radius:10px;padding:10px 12px;margin-top:12px;display:none;}
+.custom-price-bar.visible{display:block;}
+.cpb-label{font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
+.cpb-label button{background:none;border:none;color:rgba(255,120,120,0.7);font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;padding:0;}
+.cpb-input{width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(77,142,255,0.5);border-radius:8px;padding:8px 12px;color:#fff;font-family:'Inter',sans-serif;font-size:22px;font-weight:800;outline:none;text-align:center;-webkit-appearance:none;}
+.cpb-input:focus{border-color:#4d8eff;background:rgba(77,142,255,0.15);}
+.cpb-hint{font-size:10px;color:rgba(255,255,255,0.3);text-align:center;margin-top:5px;}
+.custom-mode-badge{display:none;font-size:9px;background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;padding:2px 7px;border-radius:20px;font-weight:700;letter-spacing:0.06em;margin-left:6px;}
+.custom-mode-badge.visible{display:inline;}
+
 /* EXPORT */
 .export-row{display:flex;gap:8px;margin-bottom:14px;}
 .btn-exp{flex:1;padding:11px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;color:var(--text2);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
@@ -384,9 +395,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="res-hero">
       <div class="rh-prices">
         <div class="rh-p">
-          <div class="rh-p-label">Цена с НДС</div>
+          <div class="rh-p-label">Цена с НДС <span class="custom-mode-badge" id="custom-badge">СВОЯ</span></div>
           <div class="rh-p-val accent" id="r-price-vat">—</div>
-          <div class="rh-p-sub">за 1 литр</div>
+          <div class="rh-p-sub">за 1 литр &nbsp;<button onclick="toggleCustomPrice()" id="custom-price-btn" style="background:none;border:none;color:rgba(77,142,255,0.6);font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;padding:0;vertical-align:middle">✏️</button></div>
         </div>
         <div class="rh-sep"></div>
         <div class="rh-p">
@@ -394,6 +405,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div class="rh-p-val" id="r-price-novat">—</div>
           <div class="rh-p-sub">база расчёта</div>
         </div>
+      </div>
+      <!-- Ввод своей цены -->
+      <div class="custom-price-bar" id="custom-price-bar">
+        <div class="cpb-label">
+          <span>✏️ Введите другую цену — увидите показатели</span>
+          <button onclick="resetCustomPrice()">✕ сброс</button>
+        </div>
+        <input type="number" class="cpb-input" id="custom-price-input" step="0.01" placeholder="напр. 68.30" oninput="onCustomPrice(this.value)">
+        <div class="cpb-hint">Введите цену с НДС (руб/л) → маржа и прибыль пересчитаются</div>
       </div>
       <div class="rh-sums">
         <div class="rh-sum-item">
@@ -565,6 +585,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <script>
 const VAT=0.22, TAX=0.25;
 let marginMode='pct', delivMode='self', payMode='pre';
+let _origCalcResult=null;
 let densityRef={dtl:0.840,dtm:0.845,dtz:0.833,ai92:0.735,ai95:0.750,kero:0.800,gks:0.720};
 let priceHist=[], dealHist=[];
 const FL={dtl:'ДТ Летнее',dtm:'ДТ Межсезонное',dtz:'ДТ Зимнее',ai92:'АИ-92',ai95:'АИ-95',kero:'Керосин',gks:'ГКС'};
@@ -582,7 +603,6 @@ function s(id,v){const e=g(id);if(e)e.textContent=v;}
 function show(id,v){const e=g(id);if(e)e.style.display=v?'grid':'none';}
 function showFlex(id,v){const e=g(id);if(e)e.style.display=v?'flex':'none';}
 function showBlock(id,v){const e=g(id);if(e)e.style.display=v?'block':'none';}
-function showFlex(id,v){const e=g(id);if(e)e.style.display=v?'flex':'none';}
 function fmt(n,d=2){return(n||0).toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});}
 function fmtD(s){if(!s)return'';const[y,m,d]=s.split('-');return d+'.'+m+'.'+y;}
 function setRow(pre,l,t){s(pre+'-l',fmt(l)+' ₽');s(pre+'-t',fmt(t)+' ₽');}
@@ -716,14 +736,16 @@ function onLiveUpdate(){
   g('margin-alert').innerHTML=ah;
 }
 
-// CALCULATE
-function calculate(){
-  const d=calc();
-  if(!d){alert('Заполните объём, плотность и входящую цену');return;}
+// ── RENDER RESULTS (используется и при обычном, и при обратном расчёте) ──
+function renderResults(d, isCustom){
+  isCustom=!!isCustom;
+
+  // Badge «СВОЯ»
+  g('custom-badge').classList.toggle('visible', isCustom);
 
   // Show/hide defer earn KPI
-  const dKpi = g('kpi-defer-earn');
-  if(dKpi) dKpi.style.display = payMode==='def' ? 'block' : 'none';
+  const dKpi=g('kpi-defer-earn');
+  if(dKpi) dKpi.style.display=payMode==='def'?'block':'none';
   if(payMode==='def'){
     s('r-defer-earn', fmt(d.deferEarn)+' ₽');
     const days2=g('defer-days').value||14, rC2=g('defer-rate').value||24, rF2=g('defer-fund').value||0;
@@ -739,7 +761,7 @@ function calculate(){
 
   // KPI
   s('r-net', fmt(d.netProfit)+' ₽');
-  s('r-pct', fmt(d.marginPct,1)+'%');
+  const pctEl=g('r-pct'); if(pctEl){pctEl.textContent=fmt(d.marginPct,1)+'%'; pctEl.className='kpi-val '+(d.marginPct<0?'red':d.marginPct<3?'orange':'blue');}
   s('r-pct-sub', 'рентаб. '+fmt(d.revenue>0?d.netProfit/d.revenue*100:0,1)+'% от выручки');
   s('r-vat', fmt(d.vatBudget)+' ₽');
   s('r-be', fmt(d.breakEven)+' ₽/л');
@@ -790,9 +812,6 @@ function calculate(){
   }
   s('a-vat-budget', fmt(d.vatBudget)+' ₽');
 
-  g('results').classList.add('show');
-  setTimeout(()=>g('results').scrollIntoView({behavior:'smooth',block:'start'}),100);
-
   // Сохраняем для экспорта
   const fn=g('fuel-type').options[g('fuel-type').selectedIndex].text;
   window._c={...d, fuel:fn,
@@ -806,6 +825,90 @@ function calculate(){
        net:fmt(d.netProfit), pct:fmt(d.marginPct,1),
        deferEarn:fmt(d.deferEarn), profitBefore:fmt(d.profitBefore),
        tax:fmt(d.incomeTax), vat:fmt(d.vatBudget), be:fmt(d.breakEven)}};
+}
+
+// CALCULATE
+function calculate(){
+  const d=calc();
+  if(!d){alert('Заполните объём, плотность и входящую цену');return;}
+  _origCalcResult=d;
+  // Сбрасываем кастомную цену при новом расчёте
+  g('custom-price-input').value='';
+  g('custom-price-bar').classList.remove('visible');
+  g('custom-badge').classList.remove('visible');
+  renderResults(d, false);
+  g('results').classList.add('show');
+  setTimeout(()=>g('results').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+
+// ── ОБРАТНЫЙ РАСЧЁТ ──
+// Пользователь вводит цену продажи с НДС → считаем маржу/прибыль
+function calcReverse(fp){
+  // fp = цена с НДС за литр (введённая пользователем)
+  if(!_origCalcResult) return null;
+  const d=_origCalcResult;
+  const liters=d.liters;
+
+  let marginPerL, deferClientPerL=0, deferClientTotal=0, deferEarn=0, fundTotal=0;
+
+  if(payMode==='def'){
+    // Аналитическое решение:
+    // fp = (costBase + m) * (1 + (1+VAT)*k) * (1+VAT)
+    // где k = (rC/100)*(days/365)
+    const days=parseFloat(g('defer-days').value)||0;
+    const rC=parseFloat(g('defer-rate').value)||0;
+    const rF=parseFloat(g('defer-fund').value)||0;
+    const k=(rC/100)*(days/365);
+    const kF=(rF/100)*(days/365);
+    const factor=(1+(1+VAT)*k)*(1+VAT);
+    const costPlusM=factor>0?fp/factor:fp/(1+VAT);
+    marginPerL=costPlusM-d.costBase;
+    const priceNoDeferPerL=costPlusM*(1+VAT);
+    deferClientTotal=priceNoDeferPerL*liters*k;
+    deferClientPerL=deferClientTotal/liters;
+    fundTotal=priceNoDeferPerL*liters*kF;
+    deferEarn=deferClientTotal-fundTotal;
+  } else {
+    // Без отсрочки: fp = taxablePerL*(1+VAT) = (costBase + m)*(1+VAT)
+    marginPerL=fp/(1+VAT)-d.costBase;
+  }
+
+  const taxablePerL=d.costBase+marginPerL+deferClientPerL;
+  const vatOutPerL=taxablePerL*VAT;
+  const revenue=fp*liters;
+  const revenueNoVAT=taxablePerL*liters;
+  const vatOutTotal=vatOutPerL*liters;
+  const vatBudget=Math.max(0,vatOutTotal-d.vatInBuy-d.vatInDel);
+  const grossProfit=marginPerL*liters;
+  const profitBefore=grossProfit+deferEarn;
+  const incomeTax=Math.max(0,profitBefore*TAX);
+  const netProfit=profitBefore-incomeTax;
+  const marginPct=d.costBase>0?marginPerL/d.costBase*100:0;
+
+  return {...d,
+    marginPerL,deferClientPerL,deferClientTotal,fundTotal,deferEarn,
+    taxablePerL,vatOutPerL,finalPrice:fp,revenue,revenueNoVAT,
+    vatOutTotal,vatBudget,grossProfit,profitBefore,incomeTax,netProfit,marginPct};
+}
+
+function toggleCustomPrice(){
+  const bar=g('custom-price-bar');
+  const isOpen=bar.classList.contains('visible');
+  if(isOpen){bar.classList.remove('visible');resetCustomPrice();}
+  else{bar.classList.add('visible');setTimeout(()=>g('custom-price-input').focus(),50);}
+}
+
+function onCustomPrice(val){
+  const fp=parseFloat(val);
+  if(!fp||!_origCalcResult){if(!val)renderResults(_origCalcResult,false);return;}
+  const nd=calcReverse(fp);
+  if(nd) renderResults(nd, true);
+}
+
+function resetCustomPrice(){
+  g('custom-price-input').value='';
+  g('custom-price-bar').classList.remove('visible');
+  if(_origCalcResult) renderResults(_origCalcResult, false);
 }
 
 // HISTORY

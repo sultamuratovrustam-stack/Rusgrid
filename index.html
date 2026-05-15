@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1a56c4">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{
   --bg:#eef0f4;--white:#fff;--border:#d0d4dc;--focus:#1a56c4;
@@ -840,6 +841,9 @@ function calculate(){
   renderResults(d, false);
   g('results').classList.add('show');
   setTimeout(()=>g('results').scrollIntoView({behavior:'smooth',block:'start'}),100);
+  // Telegram Mini App — показываем главную кнопку
+  const _tgApp=window.Telegram?.WebApp;
+  if(_tgApp&&_tgApp.initData){_tgApp.MainButton.setText('📤 Отправить результат в чат');_tgApp.MainButton.show();}
 }
 
 // ── ОБРАТНЫЙ РАСЧЁТ ──
@@ -1102,6 +1106,32 @@ function lsLoad(k){try{const v=localStorage.getItem('gsm_'+k);return v?JSON.pars
   if(sh) dealHist=sh;
   renderPrices(); renderHistory(); updateDensity();
   g('new-price-date').value=new Date().toISOString().slice(0,10);
+  // Telegram Mini App init
+  const _tg=window.Telegram?.WebApp;
+  if(_tg&&_tg.initData){
+    _tg.ready();
+    _tg.expand();
+    _tg.MainButton.onClick(function(){
+      if(!window._c) return;
+      const c=window._c;
+      _tg.sendData(JSON.stringify({
+        fuel: c.fuel||'—',
+        liters: fmt(c.liters,0),
+        price_vat: c.f.pVAT,
+        price_novat: c.f.pNoVAT,
+        rev_vat: c.f.rVAT,
+        rev_novat: c.f.rNoVAT,
+        net: c.f.net,
+        profit_before: c.f.profitBefore,
+        margin_pct: c.f.pct,
+        margin_pct_raw: c.marginPct,
+        vat_budget: c.f.vat,
+        be: c.f.be,
+        delivery: c.delivMode==='self'?'Самовывоз':fmt(c.delCost||0,0)+' ₽',
+        payment: c.payMode==='pre'?'Предоплата':'Отсрочка '+c.daysDefer+' дн. ('+c.rateDefer+'%)'
+      }));
+    });
+  }
 })();
 </script>
 </body>

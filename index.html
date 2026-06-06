@@ -1039,6 +1039,8 @@ function exportPDF(){
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>body{font-family:Arial,sans-serif;padding:26px;color:#1f2937;font-size:12px}
+  .close-btn{position:fixed;top:14px;right:14px;background:#1a56c4;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+  @media print{.close-btn{display:none}}
   .brand{font-size:9px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
   h2{color:#1a3a6e;font-size:16px;margin-bottom:2px}.sub{color:#888;font-size:10px;margin-bottom:4px}
   .cli{padding:6px 10px;background:#f3f6fb;border-left:3px solid #1a56c4;border-radius:0 4px 4px 0;font-size:11px;margin-bottom:14px}
@@ -1051,6 +1053,7 @@ function exportPDF(){
   .tax td{background:#fefce8;color:#92400e}
   .footer{font-size:9px;color:#aaa;margin-top:14px;border-top:1px solid #eee;padding-top:6px}
   </style></head><body>
+  <button class="close-btn" onclick="window.close()">← Закрыть</button>
   <div class="brand">⛽ РУСГРИД · Архитектура энергетики</div>
   <h2>Расчёт стоимости ГСМ</h2>
   <div class="sub">${new Date().toLocaleDateString('ru-RU')} · НДС 22% · Налог на прибыль 25%</div>
